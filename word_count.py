@@ -17,7 +17,26 @@ def get_info(line):
             vector.append(float(tmp[5]))
             # mannually restrict the length of all vectors. Otherwise correlation cannot be computed.
             # TODO: time alignment processing. Make sure that vectors share the same size.
-            if count==6000: break;
+            if count==4000: break;
+
+    print(len(vector))
+    return [stock_name, vector]
+
+
+def get_info_by_month(line):
+    x = line[0].split("_")
+    stock_name = x[2]+x[0].split('20200')[1]
+    data = line[1].split('\r\n')
+    vector = []
+    count = 0;
+    for record in data:
+        tmp = record.split(",")
+        if len(tmp) >= 6:
+            count += 1
+            vector.append(float(tmp[5]))
+            # mannually restrict the length of all vectors. Otherwise correlation cannot be computed.
+            # TODO: time alignment processing. Make sure that vectors share the same size.
+            if count == 4000: break;
 
     print(len(vector))
     return [stock_name, vector]
@@ -48,7 +67,7 @@ def shan_entropy(c):
 def calc_MI(stocks):
     X=stocks[0]
     Y=stocks[1]
-    bins=7000
+    bins=4000
     c_X = np.histogram(X,bins)[0]
     c_Y = np.histogram(Y,bins)[0]
     c_XY = np.histogram2d(X, Y, bins)[0]
@@ -71,14 +90,13 @@ if __name__ == '__main__':
     # use get_info to clear and extract data
     # get_info function help to extract stock names, and close price.
     # reduceByKey function merges time series data of different month into one list. TODO: Watch out the merge order! Not sure it is correct.
-    vector_representation=sc.wholeTextFiles("dataset/2020/test").map(get_info).reduceByKey(lambda s,t: s+t)
+    vector_representation=sc.wholeTextFiles("dataset/2020/test").map(get_info_by_month).reduceByKey(lambda s,t: s+t)
 
     # mutual information
     # possible combination
-    # .filter(lambda x:x[0][0]!=x[1][0])
-    pair_wise=vector_representation.cartesian(vector_representation).map(lambda x: (filter_same_record(x[0][0],x[1][0]),[x[0][1],x[1][1]])).reduceByKey(lambda s,t:s)
+    pair_wise=vector_representation.cartesian(vector_representation).filter(lambda x:x[0][0]!=x[1][0]).map(lambda x: (filter_same_record(x[0][0],x[1][0]),[x[0][1],x[1][1]])).reduceByKey(lambda s,t:s)
     mutual_info=pair_wise.map(lambda x: (x[0],calc_MI(x[1])))
 
-    # count=distFile.map(get_info)
+    # print(vector_representation.collect())
     # print(pair_wise.collect())
     print(mutual_info.collect())
